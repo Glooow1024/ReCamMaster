@@ -18,9 +18,9 @@
 
 训练入口及辅助模块来自正在运行的 `mv20k_bs16_lr4e5_20261119` 冻结源码，而非早期准备版。8个rank、单卡microbatch1、梯度累积2，有效batch16；从共同父5000步完整恢复模型、Adam与RNG。学习率4e-5保持至8000步，按全局步数余弦衰减至20000步的1e-5；含5200步一次性稳定性检查。250步保存、500步固定展示。
 
-`train_multiview.py`是本实验的恢复训练入口，不是无需配置的一键复现脚本。运行前需要实验protocol、合法的checkpoint identity、Wan基座、空文本特征、几何预处理结果、VAE缓存及课程统计。工作区根需要 `assets.json`、`planning_20k_v1/train_geometry_metrics.npz`；运行目录需要 `protocol.json`。脚本通过 `--root`、`--run`、`--resume`显式指定这些位置，不包含用户机器上的配置或权重。
+`multiview/training/train.py`是本实验的恢复训练入口，不是无需配置的一键复现脚本。运行前需要实验protocol、合法的checkpoint identity、Wan基座、空文本特征、几何预处理结果、VAE缓存及课程统计。工作区根需要 `assets.json`、`planning_20k_v1/train_geometry_metrics.npz`；运行目录需要 `protocol.json`。脚本通过 `--root`、`--run`、`--resume`显式指定这些位置，不包含用户机器上的配置或权重。
 
-`multiview_data.py`负责缓存适配，`curriculum_sampling.py`负责源数量和视角差异课程，`evaluate_multiview.py`负责固定生成探针，`benchmark_multiview.py`用于独立测量。训练数据与完整预处理资产应按项目实验协议另行准备。
+`multiview/data/cache.py`负责缓存适配，`multiview/data/curriculum.py`负责源数量和视角差异课程，`multiview/evaluation/probes.py`负责固定生成探针，`multiview/tools/benchmark.py`用于独立测量。训练数据与完整预处理资产应按项目实验协议另行准备。
 
 本提交只发布网络、数据适配、课程、训练与固定探针源码及测试；工作区之外的任务中心、飞书配置、机器监控、结果看板、扩展指标调度不包含在此分支中。没有上传任何训练数据、模型权重、生成视频或私密凭证。已在真实多卡实验验证的历史结果不代表论文严格复现或未见环境泛化成功。
 
@@ -29,7 +29,31 @@
 安装原仓库依赖后运行：
 
 ```bash
-CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=2 python test_multiview_plucker.py --output /tmp/multiview-check.json
+CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=2 python -m multiview.tests.test_plucker --output /tmp/multiview-check.json
 ```
 
 该检查使用小模型，验证相机编码、同步时间RoPE、多源排列和梯度等结构性质；不启动正式训练，也不替代全尺寸质量评估。`--assets`可附加已有真实缓存的适配检查。
+
+## 代码目录与运行入口
+
+```text
+multiview/
+  model.py                 # Wan基座加载和适配器初始化
+  data/                    # 缓存读取、课程采样
+  training/                # 训练入口、LR、稳定性、选择性checkpoint
+  evaluation/probes.py     # 固定视频探针
+  tools/benchmark.py       # 独立性能测试
+  tests/test_plucker.py    # CPU结构检查
+
+diffsynth/models/           # 与Wan共用的网络和射线几何模块
+```
+
+在仓库根目录运行，或先安装本仓库；不要直接执行包内文件：
+
+```bash
+python -m multiview.model --help
+python -m multiview.tools.benchmark --help
+python -m torch.distributed.run --nproc_per_node=8 --module multiview.training.train --root WORKSPACE --run RUN_DIR --resume CHECKPOINT
+```
+
+上述训练命令仅展示入口形式，须先满足前文的协议、缓存和完整恢复条件。目录整理不改变网络结构、参数名称或训练配方；旧实验使用的冻结源码、启动器和identity仍须原样保留，不能直接用新路径覆盖运行中的实验。官方单视角原始入口及setup.py保留在根目录。

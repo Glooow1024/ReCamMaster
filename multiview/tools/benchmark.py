@@ -3,8 +3,8 @@ import argparse,json,os,time,threading,subprocess,traceback
 from pathlib import Path
 import numpy as np
 import torch
-from prepare_multiview_model import build_model
-from multiview_data import load_example
+from multiview.model import build_model
+from multiview.data.cache import load_example
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--sources',type=int,required=True);p.add_argument('--out',required=True);p.add_argument('--assets',required=True);args=p.parse_args()

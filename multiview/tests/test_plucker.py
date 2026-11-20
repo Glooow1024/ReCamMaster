@@ -86,7 +86,7 @@ def main():
     checks+=['tiny model optimizer and RNG resume exact next update']
     real=[]
     if args.assets:
-        from multiview_data import load_example
+        from multiview.data.cache import load_example
         assets=json.loads(Path(args.assets).read_text())
         for group in ('f18_aperture10','f24_aperture5','f35_aperture2.4','f50_aperture2.4'):
             data=load_example(group+'/scene1',1,[2,10],Path(args.assets).parent/'geometry_v1',assets['existing_vae_cache'])

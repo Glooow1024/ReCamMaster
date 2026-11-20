@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from diffsynth import ModelManager
 from diffsynth.schedulers.flow_match import FlowMatchScheduler
-from multiview_data import load_example
+from multiview.data.cache import load_example
 
 def write_video(path,tensor):
     # Wan decode is B,C,T,H,W in [-1,1]. Stream frames to avoid giant copies.
@@ -16,7 +16,7 @@ def write_video(path,tensor):
 
 @torch.no_grad()
 def evaluate(model,root,run,step,split='validation'):
-    from train_multiview import save_json,scheduler
+    from multiview.training.train import save_json,scheduler
     root,run=Path(root),Path(run);assets=json.loads((root/'assets.json').read_text());model.eval()
     protocol=json.loads((run/'protocol.json').read_text());probes=protocol['evaluation'][split]
     folder=run/'quality'/f'{split}_step{step:06}';folder.mkdir(parents=True,exist_ok=True)

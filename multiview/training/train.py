@@ -7,13 +7,13 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from curriculum_sampling import GeometrySampler, schedule
-from lr_policy import lr_for_update, POLICY
-from stability_gate import StabilityGate
-from selective_self_checkpoint import install
+from multiview.data.curriculum import GeometrySampler, schedule
+from multiview.training.lr_policy import lr_for_update, POLICY
+from multiview.training.stability_gate import StabilityGate
+from multiview.training.selective_checkpoint import install
 install()
-from multiview_data import load_example
-from prepare_multiview_model import build_model
+from multiview.data.cache import load_example
+from multiview.model import build_model
 from diffsynth.schedulers.flow_match import FlowMatchScheduler
 
 def save_json(path,obj):
@@ -115,7 +115,7 @@ def main():
         if not args.diagnostic and start==0:
             heartbeat(status='evaluating',step=0)
             if rank==0:
-                from evaluate_multiview import evaluate
+                from multiview.evaluation.probes import evaluate
                 saved=rng_state();evaluate(model,root,run,0);restore_rng(saved)
             dist.barrier();model.train()
         def checkpoint(step):
@@ -171,14 +171,14 @@ def main():
             if not args.diagnostic and (step+1)%args.eval_every==0:
                 heartbeat(status='evaluating',step=step+1)
                 if rank==0:
-                    from evaluate_multiview import evaluate
+                    from multiview.evaluation.probes import evaluate
                     saved=rng_state();evaluate(model,root,run,step+1);restore_rng(saved)
                 dist.barrier();model.train()
         pool.shutdown()
         if not args.diagnostic:
             heartbeat(status='final_evaluating',step=args.stop_at)
             if rank==0:
-                from evaluate_multiview import evaluate
+                from multiview.evaluation.probes import evaluate
                 evaluate(model,root,run,args.stop_at,split='test')
             dist.barrier()
         heartbeat(status='complete' if args.diagnostic else 'training_complete',step=args.stop_at)
