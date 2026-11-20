@@ -2,6 +2,8 @@
 
 本分支基于官方 Wan2.1-T2V-1.3B ReCamMaster，支持可变数量的同步源视频。当前课程覆盖1～4源；网络没有将源数硬编码为4，但更多源的显存、吞吐和效果未经本实验验证。
 
+本文件是多视角分支的当前总入口。网络设计见[架构说明](docs/architecture.md)；[历史方案](docs/history/)仅用于追溯，不作为当前配置。
+
 ## 模型
 
 - 多个源latent与目标latent联合自注意力，各视频使用相同的帧时间坐标。
@@ -10,7 +12,7 @@
 - 保留ReCamMaster额外projector及官方Wan实现的单位初始化。
 - 空文本条件保留文本交叉注意力。自注意力选择性checkpoint缓存减少反向重算。
 
-模型及几何实现见 `diffsynth/models/wan_video_multiview.py`、`plucker_geometry.py`；架构沿革和初始化依据见 `RECAM_MULTIVIEW_V3.md`。`PLUCKER_V1.md`、`PLUCKER_V2.md`是历史方案，不是当前配置。
+模型及几何实现见 `diffsynth/models/wan_video_multiview.py`、`plucker_geometry.py`；架构及初始化依据见[当前架构说明](docs/architecture.md)。
 
 ## 当前训练源码快照（2026-11-20）
 

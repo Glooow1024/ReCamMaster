@@ -1,3 +1,6 @@
+> **多视角分支入口：[MULTIVIEW.md](MULTIVIEW.md)** · [当前架构](docs/architecture.md) · [历史方案（非当前配置）](docs/history/)
+> 以下保留官方项目说明。
+
 # ReCamMaster: Camera-Controlled Generative Rendering from A Single Video (ICCV'25 Oral, Best Paper Finalist)
 
 <div align="center">

@@ -1,6 +1,8 @@
 # Plücker 多视角条件 v1
 
-历史版本：当前实现已按用户要求升级为密集射线v2，见 `PLUCKER_V2.md`。v1源码保存在父目录 `plucker_sparse_v1_before_dense.zip`；以下内容仅描述历史方案。
+> 历史归档，不适用于当前训练。请先阅读[当前总入口](../../MULTIVIEW.md)和[当前架构](../architecture.md)。文中源码归档包属于原实验工作区，不随本仓库发布。
+
+历史版本：当前实现已按用户要求升级为密集射线v2，见[历史 V2](PLUCKER_V2.md)。v1源码保存在父目录 `plucker_sparse_v1_before_dense.zip`；以下内容仅描述历史方案。
 
 独立 multiview 分支；官方脚本/原复现工作区不变。没有开始全尺寸训练。
 

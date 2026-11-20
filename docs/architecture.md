@@ -1,4 +1,6 @@
-# 当前主线：ReCamMaster多视角改造 v3
+# 当前架构：ReCamMaster 多视角输入
+
+[返回多视角总入口](../MULTIVIEW.md)。本页说明当前网络结构；训练配置与使用要求以总入口为准。历史 V1/V2 已归档到 [history](history/)。
 
 用户目标是将ReCamMaster扩展为多视角输入，不是将其替换成PlenopticDreamer。以官方ReCamMaster Wan版为结构基线，只在明确指定的相机条件分支借鉴PlenopticDreamer。2026-11-16纠正v2范围错误，恢复projector。
 
@@ -6,7 +8,7 @@
 
 源视频由单个扩展为可变数量，每个视频独立VAE编码后沿时间/token轴拼接；各视角RoPE共享同步时间，源/目标相机条件各自绑定对应patch。维持空文本及交叉注意力。加入的源/目标role embedding保持当前版本，源排列不改变角色编码。
 
-相机分支：密集16×16像素射线patch，不平均，1536维(moment,direction)；每block独立Linear(1536,D,bias=False)，截断正态std=1/sqrt(D)、±3std。此部分按PlenopticDreamer公开实现对齐；裁剪内参和代表时刻说明见历史v2。2026-11-16按用户要求，默认参考改为输入列表第一个源的第一帧（不再取最小相机编号），新增源不得改变锚点。平移米制，不做场景尺度归一化；显式reference_camera接口保留。
+相机分支：密集16×16像素射线patch，不平均，1536维(moment,direction)；每block独立Linear(1536,D,bias=False)，截断正态std=1/sqrt(D)、±3std。此部分按PlenopticDreamer公开实现对齐；裁剪内参和代表时刻说明见[历史 V2](history/PLUCKER_V2.md)。2026-11-16按用户要求，默认参考改为输入列表第一个源的第一帧（不再取最小相机编号），新增源不得改变锚点。平移米制，不做场景尺度归一化；显式reference_camera接口保留。
 
 ReCamMaster残差保持：
 

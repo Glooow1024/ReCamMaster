@@ -1,6 +1,8 @@
 # Plücker 密集射线 v2
 
-历史版本，已由 `RECAM_MULTIVIEW_V3.md` 更正：删除ReCamMaster projector超出了只替换相机条件分支的范围。当前代码恢复官方ReCamMaster的单位初始化projector；v2代码保存在父目录plucker_dense_v2_before_restore.zip。以下仅描述历史v2。
+> 历史归档，不适用于当前训练。请先阅读[当前总入口](../../MULTIVIEW.md)和[当前架构](../architecture.md)。文中源码归档包属于原实验工作区，不随本仓库发布。
+
+历史版本，已由 [当前架构](../architecture.md) 更正：删除ReCamMaster projector超出了只替换相机条件分支的范围。当前代码恢复官方ReCamMaster的单位初始化projector；v2代码保存在父目录plucker_dense_v2_before_restore.zip。以下仅描述历史v2。
 
 依据用户2026-11-16指令，对齐PlenopticDreamer公开实现的射线patch、相机投影及初始化，删除额外ReCamMaster projector。仅独立multiview分支；旧训练未改、未开始新正式训练。v1归档在父目录plucker_sparse_v1_before_dense.zip，旧验收记录保留。
 
