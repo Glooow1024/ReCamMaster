@@ -1,3 +1,9 @@
+# 当前分支：单源纯 V2V 训练
+
+保留早期基于官方ReCamMaster的单源训练实现：空文本条件、VAE缓存、确定性采样和完整断点恢复。使用范围与入口见 [V2V.md](V2V.md)。当前多视角模型另见 `multiview` 分支。
+
+---
+
 # ReCamMaster: Camera-Controlled Generative Rendering from A Single Video (ICCV'25 Oral, Best Paper Finalist)
 
 <div align="center">
