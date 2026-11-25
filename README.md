@@ -1,3 +1,9 @@
+# 当前分支：多视角 ReCamMaster
+
+这是当前多视角代码线：可变源数、密集Plücker相机条件及训练实现。请先看 [多视角说明](MULTIVIEW.md) 和 [代码分支说明](docs/branches.md)。单卡合批性能实验在 `experimental/microbatch`，早期单源实现见 `single-view-v2v`。
+
+---
+
 > **多视角分支入口：[MULTIVIEW.md](MULTIVIEW.md)** · [当前架构](docs/architecture.md) · [历史方案（非当前配置）](docs/history/)
 > 以下保留官方项目说明。
 
