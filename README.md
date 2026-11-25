@@ -1,6 +1,6 @@
-# 当前分支：多视角 ReCamMaster
+# 实验分支：单卡多样本合批
 
-这是当前多视角代码线：可变源数、密集Plücker相机条件及训练实现。请先看 [多视角说明](MULTIVIEW.md) 和 [代码分支说明](docs/branches.md)。单卡合批性能实验在 `experimental/microbatch`，早期单源实现见 `single-view-v2v`。
+在multiview基础上增加microbatch2与B>1时间调制修复。**未用于正式训练**：H100实测1～3源慢23%～31%，4源OOM。当前正式代码见 `multiview`；设计、等价条件、回归测试和测试结果见 [microbatch说明](docs/microbatch.md)。
 
 ---
 

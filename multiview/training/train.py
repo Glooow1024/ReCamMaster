@@ -5,6 +5,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
+from multiview.training.batching import pack,loss_for
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from multiview.data.curriculum import GeometrySampler, schedule
@@ -78,6 +79,7 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--run',required=True)
     ap.add_argument('--stop-at',type=int,default=20000);ap.add_argument('--resume');ap.add_argument('--save-every',type=int,default=250)
     ap.add_argument('--diagnostic',action='store_true');ap.add_argument('--eval-every',type=int,default=500)
+    ap.add_argument('--microbatch',type=int,choices=[1,2],default=1)
     args=ap.parse_args();root=Path(args.root);run=Path(args.run);run.mkdir(parents=True,exist_ok=True)
     rank=int(os.environ['RANK']);world=int(os.environ['WORLD_SIZE']);local=int(os.environ['LOCAL_RANK'])
     if world!=8:raise ValueError('this protocol requires eight ranks')
@@ -92,6 +94,8 @@ def main():
         torch.manual_seed(20261116);random.seed(20261116);np.random.seed(20261116)
         protocol=json.loads((run/'protocol.json').read_text());accum=protocol['accumulation']
         assert accum in (2,5) and protocol['effective_batch']==8*accum
+        if accum % args.microbatch:
+            raise ValueError('microbatch must divide per-rank samples per update; effective batch stays fixed')
         data=Samples(root,accumulation=accum,origin_step=protocol['sample_cursor_origin']['step'],origin_samples=protocol['sample_cursor_origin']['samples']);model=build_model(data.assets['wan_base'],dtype=torch.float32).cuda()
         params=[p for p in model.parameters() if p.requires_grad]
         optimizer=torch.optim.AdamW(params,lr=4e-5,betas=(.9,.999),eps=1e-8,weight_decay=.01)
@@ -126,6 +130,7 @@ def main():
                 tmp=path.with_suffix('.tmp')
                 torch.save(dict(model=trainable_state(model),optimizer=optimizer.state_dict(),rng=states,step=step,
                                 identity=protocol['identity'],sampler_next_position=data.position(step),world_size=world,effective_batch=world*accum,accumulation=accum,
+                                execution=dict(microbatch=args.microbatch,backward_passes=accum//args.microbatch),
                                 lr_scheduler=POLICY,flow_scheduler=dict(shift=5,sigma_min=0,extra_one_step=True),amp_scaler=None),tmp)
                 tmp.replace(path);save_json(path.with_suffix('.complete.json'),dict(step=step,size=path.stat().st_size,time=time.time()))
                 save_json(run/'latest_checkpoint.json',dict(step=step,path=str(path)))
@@ -142,29 +147,32 @@ def main():
             for group in optimizer.param_groups:group['lr']=lr_for_update(step+1)
             begun=time.time();plan=data.plan(step);optimizer.zero_grad(set_to_none=True);torch.cuda.reset_peak_memory_stats()
             raws=[];weighted=[];rows=[]
-            for micro in range(accum):
-                heartbeat(status='training',step=step,micro=micro,source_count=plan[0]['source_count'])
-                batch,row=pending.result()
-                nextrow=plan[(micro+1)*world+rank] if micro<accum-1 else (data.plan(step+1)[rank] if step+1<args.stop_at else None)
-                pending=pool.submit(data.load,nextrow) if nextrow is not None else None
-                clean=batch['target'].cuda().float();src=batch['sources'].cuda();rays=batch['ray_tokens'].cuda();ctx=batch['context'].cuda()
-                del batch
-                noise=torch.randn_like(clean);idx=torch.randint(0,1000,(1,));t=sch.timesteps[idx].to(device='cuda',dtype=torch.bfloat16)
-                noisy=sch.add_noise(clean,noise,t);weight=sch.training_weight(t).cuda()
-                with (ddp.no_sync() if micro<accum-1 else contextlib.nullcontext()):
-                    with torch.autocast('cuda',dtype=torch.bfloat16):
-                        pred=ddp(noisy,src,t,ctx,rays,True)
-                        raw=torch.nn.functional.mse_loss(pred.float(),noise-clean);loss=raw*weight
+            for micro_start in range(0,accum,args.microbatch):
+                heartbeat(status='training',step=step,micro=micro_start,source_count=plan[0]['source_count'])
+                prepared=[]
+                for micro in range(micro_start,micro_start+args.microbatch):
+                    batch,row=pending.result()
+                    nextrow=plan[(micro+1)*world+rank] if micro<accum-1 else (data.plan(step+1)[rank] if step+1<args.stop_at else None)
+                    pending=pool.submit(data.load,nextrow) if nextrow is not None else None
+                    clean=batch['target'].cuda().float();noise=torch.randn_like(clean);idx=torch.randint(0,1000,(1,));t=sch.timesteps[idx].to(device='cuda',dtype=torch.bfloat16)
+                    weight=sch.training_weight(t).cuda().reshape(1)
+                    prepared.append(dict(noisy=sch.add_noise(clean,noise,t),sources=batch['sources'].cuda(),timestep=t,context=batch['context'].cuda(),rays=batch['ray_tokens'].cuda(),target=noise-clean,weight=weight))
+                    rows.append(dict(**row,timestep_index=int(idx),weight=float(weight)))
+                    del batch,clean,noise
+                packed=pack(prepared) if len(prepared)>1 else prepared[0]
+                del prepared
+                with (ddp.no_sync() if micro_start+args.microbatch<accum else contextlib.nullcontext()):
+                    loss,raw,weighted_batch=loss_for(ddp,packed)
                     if not torch.isfinite(loss):raise FloatingPointError('nonfinite loss')
-                    (loss/accum).backward()
-                raws.append(float(raw.detach()));weighted.append(float(loss.detach()));rows.append(dict(**row,timestep_index=int(idx),weight=float(weight)))
-                del pred,loss,raw,noisy,noise,clean,src,rays,ctx
+                    (loss*(args.microbatch/accum)).backward()
+                raws.extend(raw.cpu().tolist());weighted.extend(weighted_batch.cpu().tolist())
+                del packed,loss,raw,weighted_batch
             grad=torch.nn.utils.clip_grad_norm_(params,float('inf'))
             if not torch.isfinite(grad):raise FloatingPointError('nonfinite gradient')
             optimizer.step();torch.cuda.synchronize()
             row=dict(event='update',step=step+1,rank=rank,raw_loss=float(np.mean(raws)),weighted_loss=float(np.mean(weighted)),grad_norm=float(grad),lr=optimizer.param_groups[0]['lr'],
                      seconds=time.time()-begun,allocated_gib=torch.cuda.max_memory_allocated()/2**30,reserved_gib=torch.cuda.max_memory_reserved()/2**30,
-                     samples=rows,supervised_target_samples=accum,effective_batch=world*accum,seen_target_samples=data.position(step+1),training_revision=protocol["run_id"],time=time.time())
+                     samples=rows,execution_microbatch=args.microbatch,execution_accumulation=accum//args.microbatch,supervised_target_samples=accum,effective_batch=world*accum,seen_target_samples=data.position(step+1),training_revision=protocol["run_id"],time=time.time())
             log.write(json.dumps(row)+'\n');heartbeat(status='training',step=step+1,micro=0,raw_loss=row['raw_loss'],weighted_loss=row['weighted_loss'],seconds=row['seconds'])
             gate.update(step+1,row,rank)
             if (step+1)%args.save_every==0 or step+1==args.stop_at or step+1==5200:checkpoint(step+1)

@@ -76,5 +76,7 @@ class MultiViewPluckerWan(nn.Module):
             if self.training and use_gradient_checkpointing:
                 x = checkpoint(run,x,context,cameras,tmod,use_reentrant=False)
             else: x = run(x,context,cameras,tmod)
-        prediction = self.dit.head(x[:,:t*gh*gw],temb)
+        # Head modulation is [1,2,D]; retain the sample axis separately.
+        # [B,D] silently mixes sample times with shift/scale when B=2.
+        prediction = self.dit.head(x[:,:t*gh*gw],temb.unsqueeze(1))
         return self.dit.unpatchify(prediction,(t,gh,gw))
